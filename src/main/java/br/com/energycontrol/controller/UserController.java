@@ -1,9 +1,10 @@
 package br.com.energycontrol.controller;
 
 import java.util.List;
-import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -13,37 +14,55 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.com.energycontrol.DAO.IUser;
 import br.com.energycontrol.model.User;
+import br.com.energycontrol.security.TokenDTO;  
+import br.com.energycontrol.security.TokenService; 
+import br.com.energycontrol.service.UserService;
 
 @RestController
+@CrossOrigin("*")
 @RequestMapping("/users")
 public class UserController {
 
-    @Autowired
-    private IUser dao;
+    private UserService userService;
+    private TokenService tokenService;
+
+    public UserController(UserService userService, TokenService tokenService) {
+        this.userService = userService;
+        this.tokenService = tokenService;
+    }
 
     @GetMapping
-    public List<User> listaUsuario() {
-        return (List<User>) dao.findAll();
+    public ResponseEntity<List<User>> listUsers() {
+        return ResponseEntity.status(200).body(userService.listUsers());
     }
 
     @PostMapping
-    public User criarUsuario(@RequestBody User usuario) {
-        User usuarioNovo = dao.save(usuario);
-        return usuarioNovo;
+    public ResponseEntity<User> createUser(@RequestBody User user) {
+        return ResponseEntity.status(201).body(userService.createUser(user));
     }
 
-    @PutMapping 
-    public User editarUsuario(@RequestBody User usuario) {
-        User usuarioNovo = dao.save(usuario); 
-        return usuarioNovo;
+    @PutMapping
+    public ResponseEntity<User> editUser(@RequestBody User user) {
+        return ResponseEntity.status(200).body(userService.editUser(user));
     }
 
     @DeleteMapping("/{id}")
-    public Optional<User> excluirUsuario(@PathVariable Long id) { 
-         Optional<User> usuario = dao.findById(id);
-         dao.deleteById(id);
-         return usuario; 
+    public ResponseEntity<?> deleteUser(@PathVariable Long id) {
+        userService.deleteUser(id);
+        return ResponseEntity.status(204).build();
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> fazerLogin(@RequestBody User user) {
+        User usuarioAutenticado = userService.autenticar(user);
+
+        if (usuarioAutenticado == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Email ou senha inválidos!");
+        }
+
+        String token = tokenService.gerarToken(usuarioAutenticado);
+
+        return ResponseEntity.ok().body(new TokenDTO(token));
     }
 }
